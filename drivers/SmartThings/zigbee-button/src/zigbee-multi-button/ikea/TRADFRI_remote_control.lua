@@ -19,6 +19,8 @@ local log = require "log"
 local Level = clusters.Level
 local OnOff = clusters.OnOff
 local Scenes = clusters.Scenes
+local zigbee_utils = require "zigbee_utils"
+local Groups = clusters.Groups
 
 function build_button_handler(button_name, pressed_type)
   return function(driver, device, zb_rx)
@@ -66,7 +68,20 @@ local function added_handler(self, device)
     end
   end
 end
-
+local function device_info_changed(driver, device, event, args)
+  -- Did my preference value change
+    if args.old_st_store.preferences.group ~= device.preferences.group then
+      log.info("Group Id Changed: "..device.preferences.group)
+      local group = device.preferences.group
+      local oldgroup = args.old_st_store.preferences.group
+      zigbee_utils.send_unbind_request(device, OnOff.ID, oldgroup)
+      zigbee_utils.send_unbind_request(device, Level.ID, oldgroup)
+      if(group > 0) then
+        zigbee_utils.send_bind_request(device, OnOff.ID, group)
+        zigbee_utils.send_bind_request(device, Level.ID, group)
+      end
+    end
+end
 local remote_control = {
   NAME = "Remote Control",
   zigbee_handlers = {
@@ -88,7 +103,8 @@ local remote_control = {
     }
   },
   lifecycle_handlers = {
-    added = added_handler
+    added = added_handler,
+    infoChanged = device_info_changed
   },
   can_handle = function(opts, driver, device, ...)
     return device:get_model() == "TRADFRI remote control"

@@ -22,6 +22,18 @@ local zdo_messages = require "st.zigbee.zdo"
 
 local OnOff = clusters.OnOff
 local PowerConfiguration = clusters.PowerConfiguration
+local zigbee_utils = require "zigbee_utils"
+local Groups = clusters.Groups
+local log = require "log"
+local capabilities = require "st.capabilities"
+
+local do_refresh = function(self, device)
+  log.info("Doing Refresh")
+  zigbee_utils.print_clusters(device)
+  zigbee_utils.send_read_binding_table(device)
+  device:send(Groups.server.commands.GetGroupMembership(device, {}))
+  device:send(Groups.server.commands.ViewGroup(device,device.preferences.group))
+end
 
 local do_configure = function(self, device)
   device:send(device_management.build_bind_request(device, PowerConfiguration.ID, self.environment_info.hub_zigbee_eui))
@@ -49,9 +61,11 @@ end
 
 local function zdo_binding_table_handler(driver, device, zb_rx)
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
+    print("Zigbee Group is:"..binding_table.dest_addr.value)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
       -- send add hub to zigbee group command
       driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)
+      print("Adding to zigbee group: "..binding_table.dest_addr.value)
     else
       driver:add_hub_to_zigbee_group(0x0000)
     end
@@ -62,6 +76,11 @@ local ikea_of_sweden = {
   NAME = "IKEA Sweden",
   lifecycle_handlers = {
     doConfigure = do_configure
+  },
+  capability_handlers = {
+    [capabilities.refresh.ID] = {
+      [capabilities.refresh.commands.refresh.NAME] = do_refresh,
+    }
   },
   zigbee_handlers = {
     zdo = {

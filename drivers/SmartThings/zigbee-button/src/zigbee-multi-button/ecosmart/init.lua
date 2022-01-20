@@ -20,6 +20,8 @@ local Level = clusters.Level
 local OnOff = clusters.OnOff
 local ColorControl = clusters.ColorControl
 local PowerConfiguration = clusters.PowerConfiguration
+local zigbee_utils = require "zigbee_utils"
+local Groups = clusters.Groups
 
 --[[
 The EcoSmart remote has 4 buttons. We've chosen to only support "pushed" events on all buttons even though technically
@@ -49,6 +51,25 @@ The fourth button sends a MoveToLevelWithOnOff command followed by MoveToColorTe
 events when we receive the MoveToLevelWithOnOff command and we ignore the following MoveToColorTemperature command so
 that we don't generate an erroneous button3 `pushed` event.
 --]]
+
+local function device_info_changed(driver, device, event, args)
+  -- Did my preference value change
+    if args.old_st_store.preferences.group ~= device.preferences.group then
+      log.info("Group Id Changed: "..device.preferences.group)
+      local group = device.preferences.group
+      local oldgroup = args.old_st_store.preferences.group
+      zigbee_utils.send_unbind_request(device, OnOff.ID, oldgroup)
+      zigbee_utils.send_unbind_request(device, Level.ID, oldgroup)
+      zigbee_utils.send_unbind_request(device, ColorControl.ID, oldgroup)
+      if(group > 0) then
+        zigbee_utils.send_bind_request(device, OnOff.ID, group)
+        zigbee_utils.send_bind_request(device, Level.ID, group)
+        zigbee_utils.send_bind_request(device, ColorControl.ID, group)
+      elseif (group == 0) then
+        device:send(Groups.server.commands.RemoveAllGroups(device, {}))
+      end
+    end
+end
 
 local fields = {
   IGNORE_MOVETOCOLORTEMP = "ignore_next_movetocolortemperature"
@@ -87,6 +108,11 @@ end
 
 local do_refresh = function(self, device)
   device:send(PowerConfiguration.attributes.BatteryPercentageRemaining:read(device))
+  log.info("Doing Refresh")
+  zigbee_utils.print_clusters(device)
+  zigbee_utils.send_read_binding_table(device)
+  device:send(Groups.server.commands.GetGroupMembership(device, {}))
+  device:send(Groups.server.commands.ViewGroup(device,device.preferences.group))
 end
 
 local do_configure = function(self, device)
@@ -123,7 +149,8 @@ local ecosmart_button = {
     }
   },
   lifecycle_handlers = {
-    doConfigure = do_configure
+    doConfigure = do_configure,
+    infoChanged = device_info_changed
   },
   can_handle = function(opts, driver, device, ...)
     return device:get_manufacturer() == "LDS" and device:get_model() == "ZBT-CCTSwitch-D0001"

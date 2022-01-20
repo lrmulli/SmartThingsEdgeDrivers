@@ -30,7 +30,7 @@ local function device_info_changed(driver, device, event, args)
       zigbee_utils.send_unbind_request(device, WindowCovering.ID, oldgroup)
       if(group > 0) then
         zigbee_utils.send_bind_request(device, WindowCovering.ID, group)
-      else if (group == 0) then
+      elseif (group == 0) then
         device:send(Groups.server.commands.RemoveAllGroups(device, {}))
       end
     end

@@ -79,7 +79,7 @@ local function device_info_changed(driver, device, event, args)
       if(group > 0) then
         zigbee_utils.send_bind_request(device, OnOff.ID, group)
         zigbee_utils.send_bind_request(device, Level.ID, group)
-      else if (group == 0) then
+      elseif (group == 0) then
         device:send(Groups.server.commands.RemoveAllGroups(device, {}))
       end
     end

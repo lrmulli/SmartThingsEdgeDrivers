@@ -61,7 +61,7 @@ local function added_handler(self, device)
 end
 
 local zigbee_multi_button = {
-  NAME = "ZigBee multi button",
+  NAME = "ZigBee multi button - Groups",
   lifecycle_handlers = {
     added = added_handler
   },

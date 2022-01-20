@@ -1,4 +1,4 @@
-name: 'Zigbee Button'
+name: 'Zigbee Button Groups'
 packageKey: 'zigbee-button'
 permissions:
   zigbee: {}

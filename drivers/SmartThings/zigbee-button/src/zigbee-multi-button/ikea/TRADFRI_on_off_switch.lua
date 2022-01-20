@@ -20,6 +20,27 @@ local Level = clusters.Level
 local OnOff = clusters.OnOff
 local PowerConfiguration = clusters.PowerConfiguration
 
+local zigbee_utils = require "zigbee_utils"
+local Groups = clusters.Groups
+
+local function device_info_changed(driver, device, event, args)
+  -- Did my preference value change
+  if args.old_st_store.preferences.group ~= device.preferences.group then
+    log.info("Group Id Changed: "..device.preferences.group)
+    local group = device.preferences.group
+    local oldgroup = args.old_st_store.preferences.group
+    zigbee_utils.send_unbind_request(device, OnOff.ID, oldgroup)
+    zigbee_utils.send_unbind_request(device, Level.ID, oldgroup)
+    if(group > 0) then
+      zigbee_utils.send_bind_request(device, OnOff.ID, group)
+      zigbee_utils.send_bind_request(device, Level.ID, group)
+    else if (group == 0) then
+      device:send(Groups.server.commands.RemoveAllGroups(device, {}))
+    end
+  end
+end
+
+
 function build_button_handler(button_name, pressed_type)
   return function(driver, device, zb_rx)
     local additional_fields = {
@@ -48,6 +69,9 @@ local on_off_switch = {
         [Level.server.commands.MoveWithOnOff.ID] = build_button_handler("button2", capabilities.button.button.held)
       },
     }
+  },
+  lifecycle_handlers = {
+    infoChanged = device_info_changed
   },
   can_handle = function(opts, driver, device, ...)
     return device:get_model() == "TRADFRI on/off switch"

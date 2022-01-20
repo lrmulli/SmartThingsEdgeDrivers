@@ -17,6 +17,24 @@ local clusters = require "st.zigbee.zcl.clusters"
 local log = require "log"
 
 local WindowCovering = clusters.WindowCovering
+local zigbee_utils = require "zigbee_utils"
+local Groups = clusters.Groups
+
+local function device_info_changed(driver, device, event, args)
+  -- Did my preference value change
+    if args.old_st_store.preferences.group ~= device.preferences.group then
+      log.info("Group Id Changed: "..device.preferences.group)
+      local group = device.preferences.group
+      local oldgroup = args.old_st_store.preferences.group
+
+      zigbee_utils.send_unbind_request(device, WindowCovering.ID, oldgroup)
+      if(group > 0) then
+        zigbee_utils.send_bind_request(device, WindowCovering.ID, group)
+      else if (group == 0) then
+        device:send(Groups.server.commands.RemoveAllGroups(device, {}))
+      end
+    end
+end
 
 function build_button_handler(button_name, pressed_type)
   return function(driver, device, zb_rx)
@@ -42,6 +60,9 @@ local open_close_remote = {
         [WindowCovering.server.commands.DownOrClose.ID] = build_button_handler("button2", capabilities.button.button.pushed)
       }
     }
+  },
+  lifecycle_handlers = {
+    infoChanged = device_info_changed
   },
   can_handle = function(opts, driver, device, ...)
     return device:get_model() == "TRADFRI open/close remote"

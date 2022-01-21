@@ -32,7 +32,7 @@ local zcl_clusters = require "st.zigbee.zcl.clusters"
 local logger = capabilities["universevoice35900.log"]
 
 local do_refresh = function(self, device)
-  log.info("Doing Refresh")
+  log.info("Doing Refresh - "..device:get_model())
   zigbee_utils.print_clusters(device)
   zigbee_utils.send_read_binding_table(device)
   device:send(Groups.server.commands.GetGroupMembership(device, {}))
@@ -100,7 +100,8 @@ local ikea_of_sweden = {
   sub_drivers = {
     require("zigbee-multi-button.ikea.TRADFRI_remote_control"),
     require("zigbee-multi-button.ikea.TRADFRI_on_off_switch"),
-    require("zigbee-multi-button.ikea.TRADFRI_open_close_remote")
+    require("zigbee-multi-button.ikea.TRADFRI_open_close_remote"),
+    require("zigbee-multi-button.ikea.STYRBAR_remote_control"),
   },
   can_handle = function(opts, driver, device, ...)
     return device:get_manufacturer() == "IKEA of Sweden" or device:get_manufacturer() == "KE"

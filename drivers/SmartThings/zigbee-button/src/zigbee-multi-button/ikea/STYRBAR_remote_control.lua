@@ -77,7 +77,7 @@ function build_button_payload_handler(pressed_type)
     local bytes = zb_rx.body.zcl_body.body_bytes
     local payload_id = bytes:byte(1)
     local button_name =
-      payload_id == 0x00 and "button2" or "button4"
+      payload_id == 0x00 and "button4" or "button3"
     local event = pressed_type(additional_fields)
     local comp = device.profile.components[button_name]
     if comp ~= nil then
@@ -110,23 +110,28 @@ local function device_info_changed(driver, device, event, args)
       group_bind(device)
     end
 end
+function not_held_handler(driver, device, value, zb_rx)
+  log.debug("Handling Tradfri not held. Nothing to do.")
+end
 local remote_control = {
   NAME = "Remote Control",
   zigbee_handlers = {
     cluster = {
       [OnOff.ID] = {
-        [OnOff.server.commands.Toggle.ID] = build_button_handler("button5", capabilities.button.button.pushed)
+        [0x01] = build_button_handler("button1", capabilities.button.button.pushed),
+        [0x00] = build_button_handler("button2", capabilities.button.button.pushed)
       },
       [Level.ID] = {
-        [Level.server.commands.Move.ID] = build_button_handler("button3", capabilities.button.button.held),
-        [Level.server.commands.Step.ID] = build_button_handler("button3", capabilities.button.button.pushed),
-        [Level.server.commands.MoveWithOnOff.ID] = build_button_handler("button1", capabilities.button.button.held),
-        [Level.server.commands.StepWithOnOff.ID] = build_button_handler("button1", capabilities.button.button.pushed)
+        [Level.commands.MoveWithOnOff.ID] = build_button_handler("button1", capabilities.button.button.held),
+        [Level.commands.StopWithOnOff.ID] = not_held_handler,
+
+        [Level.commands.Move.ID] = build_button_handler("button2", capabilities.button.button.held),
+        [Level.commands.Stop.ID] = not_held_handler
       },
-      -- Manufacturer command id used in ikea
       [Scenes.ID] = {
         [0x07] = build_button_payload_handler(capabilities.button.button.pushed),
-        [0x08] = build_button_payload_handler(capabilities.button.button.held)
+        [0x08] = build_button_payload_handler(capabilities.button.button.held),
+        [0x09] = not_held_handler
       }
     }
   },
@@ -135,7 +140,7 @@ local remote_control = {
     infoChanged = device_info_changed
   },
   can_handle = function(opts, driver, device, ...)
-    return device:get_model() == "TRADFRI remote control"
+    return device:get_model() == "Remote Control N2"
   end
 }
 

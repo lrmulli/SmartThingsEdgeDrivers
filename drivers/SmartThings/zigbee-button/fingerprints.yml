@@ -39,6 +39,11 @@ zigbeeManufacturer:
     manufacturer: IKEA of Sweden
     model: TRADFRI remote control
     deviceProfileName: five-buttons-battery
+  - id: ikea-styrbar-remote-1
+    deviceLabel: Styrbar Remote
+    manufacturer: IKEA of Sweden
+    model: Remote Control N2
+    deviceProfileName: four-buttons-battery
   - id: "KE/TRADFRIopenclose"
     deviceLabel: IKEA Remote Control
     manufacturer: KE

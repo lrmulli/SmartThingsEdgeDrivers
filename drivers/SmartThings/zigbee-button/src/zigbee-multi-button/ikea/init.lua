@@ -26,6 +26,10 @@ local zigbee_utils = require "zigbee_utils"
 local Groups = clusters.Groups
 local log = require "log"
 local capabilities = require "st.capabilities"
+local utils = require "st.utils"
+local zcl_clusters = require "st.zigbee.zcl.clusters"
+
+local logger = capabilities["universevoice35900.log"]
 
 local do_refresh = function(self, device)
   log.info("Doing Refresh")
@@ -60,17 +64,23 @@ local do_configure = function(self, device)
 end
 
 local function zdo_binding_table_handler(driver, device, zb_rx)
+  local groups = ""
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
     print("Zigbee Group is:"..binding_table.dest_addr.value)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
       -- send add hub to zigbee group command
       driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)
       print("Adding to zigbee group: "..binding_table.dest_addr.value)
+      groups = groups..binding_table.cluster_id.value.."("..binding_table.dest_addr.value.."),"
     else
       driver:add_hub_to_zigbee_group(0x0000)
     end
   end
+  log.info("GROUPS: "..groups)
+  device:emit_event(logger.logger("Processing Binding Table"))
+  device:emit_event(logger.logger("GROUPS: "..groups))
 end
+
 
 local ikea_of_sweden = {
   NAME = "IKEA Sweden",
@@ -85,7 +95,7 @@ local ikea_of_sweden = {
   zigbee_handlers = {
     zdo = {
       [mgmt_bind_resp.MGMT_BIND_RESPONSE] = zdo_binding_table_handler
-    }
+    },
   },
   sub_drivers = {
     require("zigbee-multi-button.ikea.TRADFRI_remote_control"),

@@ -15,6 +15,8 @@
 local capabilities = require "st.capabilities"
 local clusters  = require "st.zigbee.zcl.clusters"
 local device_management = require "st.zigbee.device_management"
+local mgmt_bind_resp = require "st.zigbee.zdo.mgmt_bind_response"
+local mgmt_bind_req = require "st.zigbee.zdo.mgmt_bind_request"
 local log = require "log"
 local Level = clusters.Level
 local OnOff = clusters.OnOff
@@ -22,6 +24,8 @@ local ColorControl = clusters.ColorControl
 local PowerConfiguration = clusters.PowerConfiguration
 local zigbee_utils = require "zigbee_utils"
 local Groups = clusters.Groups
+
+local logger = capabilities["universevoice35900.log"]
 
 --[[
 The EcoSmart remote has 4 buttons. We've chosen to only support "pushed" events on all buttons even though technically
@@ -51,6 +55,24 @@ The fourth button sends a MoveToLevelWithOnOff command followed by MoveToColorTe
 events when we receive the MoveToLevelWithOnOff command and we ignore the following MoveToColorTemperature command so
 that we don't generate an erroneous button3 `pushed` event.
 --]]
+local function group_bind(device)
+  local grp = device.preferences.group
+  local rmv = device.preferences.remove
+  if(rmv > 0) then
+    log.info("Attempting remove group :"..rmv)
+    zigbee_utils.send_unbind_request(device, OnOff.ID, rmv)
+    zigbee_utils.send_unbind_request(device, Level.ID, rmv)
+    zigbee_utils.send_unbind_request(device, ColorControl.ID, rmv)
+  end
+  if(grp > 0) then
+    log.info("Attempting add group :"..grp)
+    zigbee_utils.send_bind_request(device, OnOff.ID, grp)
+    zigbee_utils.send_bind_request(device, Level.ID, grp)
+    zigbee_utils.send_bind_request(device, ColorControl.ID, grp)
+  end
+  zigbee_utils.send_read_binding_table(device)
+end
+
 
 local function device_info_changed(driver, device, event, args)
   -- Did my preference value change
@@ -58,16 +80,7 @@ local function device_info_changed(driver, device, event, args)
       log.info("Group Id Changed: "..device.preferences.group)
       local group = device.preferences.group
       local oldgroup = args.old_st_store.preferences.group
-      zigbee_utils.send_unbind_request(device, OnOff.ID, oldgroup)
-      zigbee_utils.send_unbind_request(device, Level.ID, oldgroup)
-      zigbee_utils.send_unbind_request(device, ColorControl.ID, oldgroup)
-      if(group > 0) then
-        zigbee_utils.send_bind_request(device, OnOff.ID, group)
-        zigbee_utils.send_bind_request(device, Level.ID, group)
-        zigbee_utils.send_bind_request(device, ColorControl.ID, group)
-      elseif (group == 0) then
-        device:send(Groups.server.commands.RemoveAllGroups(device, {}))
-      end
+      group_bind(device)
     end
 end
 
@@ -79,6 +92,14 @@ local emit_pushed_event = function(button_name, device)
   local additional_fields = {
     state_change = true
   }
+  if (device.preferences.verbosegrouplog == true) then
+    log.info("Fetching Binding Table")
+    zigbee_utils.send_read_binding_table(device)
+  end
+  if (device.preferences.aggressivebind == true) then
+    log.info("Aggressive Bind on button press attempt")
+    group_bind(device)
+  end
   local event = capabilities.button.button.pushed(additional_fields)
   local comp = device.profile.components[button_name]
   if comp ~= nil then
@@ -124,6 +145,25 @@ local do_configure = function(self, device)
   self:add_hub_to_zigbee_group(0x4003)
 end
 
+local function zdo_binding_table_handler(driver, device, zb_rx)
+  local groups = ""
+  for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
+    print("Zigbee Group is:"..binding_table.dest_addr.value)
+    if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
+      -- send add hub to zigbee group command
+      driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)
+      print("Adding to zigbee group: "..binding_table.dest_addr.value)
+      groups = groups..binding_table.cluster_id.value.."("..binding_table.dest_addr.value.."),"
+    else
+      driver:add_hub_to_zigbee_group(0x0000)
+    end
+  end
+  log.info("GROUPS: "..groups)
+  device:emit_event(logger.logger("Processing Binding Table"))
+  device:emit_event(logger.logger("GROUPS: "..groups))
+end
+
+
 local ecosmart_button = {
   NAME = "EcoSmart Button",
   capability_handlers = {
@@ -132,6 +172,9 @@ local ecosmart_button = {
     }
   },
   zigbee_handlers = {
+    zdo = {
+      [mgmt_bind_resp.MGMT_BIND_RESPONSE] = zdo_binding_table_handler
+    },
     cluster = {
       [OnOff.ID] = {
         [OnOff.server.commands.Off.ID] = function(driver, device, zb_rx) emit_pushed_event("button1", device) end,

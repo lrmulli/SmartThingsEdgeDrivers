@@ -8,6 +8,8 @@ components:
         version: 1
       - id: refresh
         version: 1
+      - id: universevoice35900.log
+        version: 1
     categories:
       - name: RemoteController
   - id: button1
@@ -24,10 +26,32 @@ components:
       - name: RemoteController
 preferences:
   - name: "group"
-    title: "Group"
+    title: "Add Group"
     required: false
     preferenceType: number
     definition:
       minimum: 0
       maximum: 65535
       default: 0
+  - name: "remove"
+    title: "Remove Group"
+    required: false
+    preferenceType: number
+    definition:
+      minimum: 0
+      maximum: 65535
+      default: 0
+  - name: "verbosegrouplog"
+    title: "Verbose Group Membership Logging"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+  - name: "aggressivebind"
+    title: "Bind on button presses"
+    description: "Attempt to bind on every button press - do not leave this turned on once succesfully joined to group"
+    required: true
+    preferenceType: boolean
+    definition:
+      default: false
+

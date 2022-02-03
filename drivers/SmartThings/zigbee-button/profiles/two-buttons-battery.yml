@@ -41,6 +41,24 @@ preferences:
       minimum: 0
       maximum: 65535
       default: 0
+  - name: "devadd"
+    title: "Add Device"
+    required: false
+    preferenceType: string
+    definition:
+      minLength: 0
+      maxLength: 16
+      stringType: text
+      default: ""
+  - name: "devrmv"
+    title: "Remove Device"
+    required: false
+    preferenceType: string
+    definition:
+      minLength: 0
+      maxLength: 16
+      stringType: text
+      default: ""
   - name: "verbosegrouplog"
     title: "Verbose Group Membership Logging"
     required: true

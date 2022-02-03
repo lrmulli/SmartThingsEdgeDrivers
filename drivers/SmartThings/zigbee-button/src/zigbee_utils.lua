@@ -14,6 +14,7 @@ local zdo_messages = require "st.zigbee.zdo"
 
 local zutils = {}
 
+
 zutils.supports_client_cluster = function(device, cluster_id)
     for ep_id, ep in pairs(device.zigbee_endpoints) do
       for _, cluster in ipairs(ep.client_clusters) do
@@ -63,6 +64,56 @@ zutils.print_clusters = function(device)
               clusters_to_string(" Client clusters:", ep.client_clusters) ..
               clusters_to_string(" Server clusters:", ep.server_clusters) )
   end
+end
+
+zutils.send_unbind_request_64 = function(device, cluster, addr,endpoint)
+  -- not tested
+  local addr_header = messages.AddressHeader(
+    constants.HUB.ADDR, 
+    constants.HUB.ENDPOINT, 
+    device:get_short_address(), 
+    device.fingerprinted_endpoint_id, 
+    constants.ZDO_PROFILE_ID, 
+    0x0022)
+    
+  local bind_req = bind_request.BindRequest(
+    device.zigbee_eui, 
+    device:get_endpoint(cluster), 
+    cluster, 
+    bind_request.ADDRESS_MODE_64_BIT, 
+    addr,
+    endpoint)
+
+  return device:send( messages.ZigbeeMessageTx({
+    address_header = addr_header,
+    body = zdo_messages.ZdoMessageBody({zdo_body = bind_req})
+  }) )
+end
+zutils.build_bind_request_64 = function(device, cluster, addr,endpoint)
+  local addr_header = messages.AddressHeader(
+    constants.HUB.ADDR, 
+    constants.HUB.ENDPOINT, 
+    device:get_short_address(), 
+    device.fingerprinted_endpoint_id, 
+    constants.ZDO_PROFILE_ID, 
+    bind_request.BindRequest.ID)
+    
+  local bind_req = bind_request.BindRequest(
+    device.zigbee_eui, 
+    device:get_endpoint(cluster), 
+    cluster, 
+    bind_request.ADDRESS_MODE_64_BIT, 
+    addr,
+    endpoint)
+
+  return messages.ZigbeeMessageTx({
+    address_header = addr_header,
+    body = zdo_messages.ZdoMessageBody({zdo_body = bind_req})
+  })
+end
+
+zutils.send_bind_request_64 = function(device, cluster, addr,endpoint)
+  return device:send( zutils.build_bind_request_64(device, cluster, addr,endpoint) )
 end
 
 zutils.build_bind_request = function(device, cluster, group)

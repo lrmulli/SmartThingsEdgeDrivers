@@ -21,6 +21,28 @@ local OnOff = clusters.OnOff
 local Scenes = clusters.Scenes
 local zigbee_utils = require "zigbee_utils"
 local Groups = clusters.Groups
+local data_types = require "st.zigbee.data_types"
+local device_management = require "st.zigbee.device_management"
+
+local function device_bind(driver,device)
+  local devadd = device.preferences.devadd
+  local rmv = device.preferences.devrmv
+  if(rmv ~= "") then
+    log.info("Attempting remove device :"..rmv)
+    rmv = rmv:gsub('%x%x',function(c)return c.char(tonumber(c,16))end)
+    zigbee_utils.send_unbind_request_64(device, OnOff.ID, data_types.IeeeAddress(rmv),data_types.Uint8(0x01))
+    zigbee_utils.send_unbind_request_64(device, Level.ID, data_types.IeeeAddress(rmv),data_types.Uint8(0x01))
+  end
+  if(devadd ~= "") then
+    log.info("Attempting add device :"..devadd)
+    devadd = devadd:gsub('%x%x',function(c)return c.char(tonumber(c,16))end)
+    zigbee_utils.send_bind_request_64(device, OnOff.ID, data_types.IeeeAddress(devadd),data_types.Uint8(0x01))
+    zigbee_utils.send_bind_request_64(device, Level.ID, data_types.IeeeAddress(devadd),data_types.Uint8(0x01))
+  end
+  device:send(device_management.build_bind_request(device, OnOff.ID, driver.environment_info.hub_zigbee_eui))
+  device:send(device_management.build_bind_request(device, Level.ID, driver.environment_info.hub_zigbee_eui))
+  zigbee_utils.send_read_binding_table(device)
+end
 
 local function group_bind(device)
   local grp = device.preferences.group
@@ -50,6 +72,7 @@ function build_button_handler(button_name, pressed_type)
     if (device.preferences.aggressivebind == true) then
       log.info("Aggressive Bind on button press attempt")
       group_bind(device)
+      device_bind(driver,device)
     end
     local event = pressed_type(additional_fields)
     local comp = device.profile.components[button_name]
@@ -73,6 +96,7 @@ function build_button_payload_handler(pressed_type)
     if (device.preferences.aggressivebind == true) then
       log.info("Aggressive Bind on button press attempt")
       group_bind(device)
+      device_bind(driver,device)
     end
     local bytes = zb_rx.body.zcl_body.body_bytes
     local payload_id = bytes:byte(1)

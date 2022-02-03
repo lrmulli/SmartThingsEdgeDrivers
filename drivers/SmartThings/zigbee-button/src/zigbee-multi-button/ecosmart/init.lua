@@ -23,7 +23,9 @@ local OnOff = clusters.OnOff
 local ColorControl = clusters.ColorControl
 local PowerConfiguration = clusters.PowerConfiguration
 local zigbee_utils = require "zigbee_utils"
+local utils = require "st.utils"
 local Groups = clusters.Groups
+local data_types = require "st.zigbee.data_types"
 
 local logger = capabilities["universevoice35900.log"]
 
@@ -55,6 +57,29 @@ The fourth button sends a MoveToLevelWithOnOff command followed by MoveToColorTe
 events when we receive the MoveToLevelWithOnOff command and we ignore the following MoveToColorTemperature command so
 that we don't generate an erroneous button3 `pushed` event.
 --]]
+local function device_bind(driver,device)
+  local devadd = device.preferences.devadd
+  local rmv = device.preferences.devrmv
+  if(rmv ~= "") then
+    log.info("Attempting remove device :"..rmv)
+    rmv = rmv:gsub('%x%x',function(c)return c.char(tonumber(c,16))end)
+    zigbee_utils.send_unbind_request_64(device, OnOff.ID, data_types.IeeeAddress(rmv),data_types.Uint8(0x01))
+    zigbee_utils.send_unbind_request_64(device, Level.ID, data_types.IeeeAddress(rmv),data_types.Uint8(0x01))
+    zigbee_utils.send_unbind_request_64(device, ColorControl.ID, data_types.IeeeAddress(rmv),data_types.Uint8(0x01))
+  end
+  if(devadd ~= "") then
+    log.info("Attempting add device :"..devadd)
+    devadd = devadd:gsub('%x%x',function(c)return c.char(tonumber(c,16))end)
+    zigbee_utils.send_bind_request_64(device, OnOff.ID, data_types.IeeeAddress(devadd),data_types.Uint8(0x01))
+    zigbee_utils.send_bind_request_64(device, Level.ID, data_types.IeeeAddress(devadd),data_types.Uint8(0x01))
+    zigbee_utils.send_bind_request_64(device, ColorControl.ID, data_types.IeeeAddress(devadd),data_types.Uint8(0x01))
+  end
+  device:send(device_management.build_bind_request(device, OnOff.ID, driver.environment_info.hub_zigbee_eui))
+  device:send(device_management.build_bind_request(device, Level.ID, driver.environment_info.hub_zigbee_eui))
+  device:send(device_management.build_bind_request(device, ColorControl.ID, driver.environment_info.hub_zigbee_eui))
+  
+  zigbee_utils.send_read_binding_table(device)
+end
 local function group_bind(device)
   local grp = device.preferences.group
   local rmv = device.preferences.remove
@@ -147,6 +172,7 @@ end
 
 local function zdo_binding_table_handler(driver, device, zb_rx)
   local groups = ""
+  local devicebinds = ""
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
     print("Zigbee Group is:"..binding_table.dest_addr.value)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
@@ -156,11 +182,18 @@ local function zdo_binding_table_handler(driver, device, zb_rx)
       groups = groups..binding_table.cluster_id.value.."("..binding_table.dest_addr.value.."),"
     else
       driver:add_hub_to_zigbee_group(0x0000)
+      local binding_info = {}
+      binding_info.cluster_id = binding_table.cluster_id.value
+      binding_info.dest_addr = utils.get_print_safe_string(binding_table.dest_addr.value)
+      binding_info.dest_addr = binding_info.dest_addr:gsub("%\\x", "")
+      devicebinds = devicebinds..utils.stringify_table(binding_info)
     end
   end
   log.info("GROUPS: "..groups)
+  log.info("DEVICE BINDS: "..devicebinds)
   device:emit_event(logger.logger("Processing Binding Table"))
   device:emit_event(logger.logger("GROUPS: "..groups))
+  device:emit_event(logger.logger("DEVICE BINDS: "..devicebinds))
 end
 
 

@@ -33,6 +33,8 @@ local logger = capabilities["universevoice35900.log"]
 
 local do_refresh = function(self, device)
   log.info("Doing Refresh - "..device:get_model())
+  log.info("Hub Address: "..constants.HUB.ADDR)
+  log.info("Hub Endpoint: "..constants.HUB.ENDPOINT)
   zigbee_utils.print_clusters(device)
   zigbee_utils.send_read_binding_table(device)
   device:send(Groups.server.commands.GetGroupMembership(device, {}))
@@ -65,6 +67,7 @@ end
 
 local function zdo_binding_table_handler(driver, device, zb_rx)
   local groups = ""
+  local devicebinds = ""
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
     print("Zigbee Group is:"..binding_table.dest_addr.value)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
@@ -74,11 +77,18 @@ local function zdo_binding_table_handler(driver, device, zb_rx)
       groups = groups..binding_table.cluster_id.value.."("..binding_table.dest_addr.value.."),"
     else
       driver:add_hub_to_zigbee_group(0x0000)
+      local binding_info = {}
+      binding_info.cluster_id = binding_table.cluster_id.value
+      binding_info.dest_addr = utils.get_print_safe_string(binding_table.dest_addr.value)
+      binding_info.dest_addr = binding_info.dest_addr:gsub("%\\x", "")
+      devicebinds = devicebinds..utils.stringify_table(binding_info)
     end
   end
   log.info("GROUPS: "..groups)
+  log.info("DEVICE BINDS: "..devicebinds)
   device:emit_event(logger.logger("Processing Binding Table"))
   device:emit_event(logger.logger("GROUPS: "..groups))
+  device:emit_event(logger.logger("DEVICE BINDS: "..devicebinds))
 end
 
 

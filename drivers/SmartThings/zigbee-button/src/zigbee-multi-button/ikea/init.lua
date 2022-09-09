@@ -70,7 +70,7 @@ local function zdo_binding_table_handler(driver, device, zb_rx)
   local devicebinds = ""
   log.info("PROCESSING BINDING TABLE")
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
-    print("Zigbee Group is:"..binding_table.dest_addr.value)
+    print("Zigbee Group is:"..utils.get_print_safe_string(binding_table.dest_addr.value))
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
       -- send add hub to zigbee group command
       driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)

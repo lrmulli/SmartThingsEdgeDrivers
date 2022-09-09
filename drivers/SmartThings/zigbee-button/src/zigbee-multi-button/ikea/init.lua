@@ -75,7 +75,7 @@ local function zdo_binding_table_handler(driver, device, zb_rx)
     --convert numerical bytes to UTF-8 string 
     local thisgroup =  table.concat(bytes, ', ')
     
-    print("Zigbee Group is:"..utils.get_print_safe_string(thisgroup))
+    print("Zigbee Group is:"..thisgroup)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
       -- send add hub to zigbee group command
       driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)

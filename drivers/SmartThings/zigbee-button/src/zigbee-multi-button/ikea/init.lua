@@ -68,19 +68,13 @@ end
 local function zdo_binding_table_handler(driver, device, zb_rx)
   local groups = ""
   local devicebinds = ""
-  log.info("PROCESSING BINDING TABLE")
   for _, binding_table in pairs(zb_rx.body.zdo_body.binding_table_entries) do
-    --convert received binary string to table of numerical bytes
-    local bytes = { string.byte(binding_table.dest_addr.value, 0, -1) }
-    --convert numerical bytes to UTF-8 string 
-    local thisgroup =  table.concat(bytes, ', ')
-    
-    print("Zigbee Group is:"..thisgroup)
+    print("Zigbee Group is:"..binding_table.dest_addr.value)
     if binding_table.dest_addr_mode.value == binding_table.DEST_ADDR_MODE_SHORT then
       -- send add hub to zigbee group command
       driver:add_hub_to_zigbee_group(binding_table.dest_addr.value)
-      print("Adding to zigbee group: "..utils.get_print_safe_string(thisgroup))
-      groups = groups..utils.get_print_safe_string(binding_table.cluster_id.value).."("..utils.get_print_safe_string(thisgroup).."),"
+      print("Adding to zigbee group: "..binding_table.dest_addr.value)
+      groups = groups..binding_table.cluster_id.value.."("..binding_table.dest_addr.value.."),"
     else
       driver:add_hub_to_zigbee_group(0x0000)
       local binding_info = {}
